@@ -5,16 +5,48 @@ export default function Login() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const validate = () => {
+    const newErrors = {};
+    if (!email.trim()) {
+      newErrors.email = 'L’email est requis';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = 'Format d’email invalide';
+    }
+    if (!password) {
+      newErrors.password = 'Le mot de passe est requis';
+    }
+    return newErrors;
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
+    setLoading(true);
     try {
-      await login(email, password);
-      window.location.href = '/';
-    } catch {
-      setError('Identifiants invalides');
+      await login({ email, password });
+      alert('Connexion réussie');
+      window.location.href = '/dashboard';
+    } catch (err) {
+      const backendErrors = err.response?.data?.errors;
+      if (backendErrors) {
+        const formatted = {};
+        backendErrors.forEach(e => {
+          formatted[e.param] = e.msg;
+        });
+        setErrors(formatted);
+      } else {
+        setErrors({ general: err.response?.data?.message || 'Erreur lors de la connexion' });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -22,16 +54,48 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <form onSubmit={onSubmit} className="bg-white p-6 rounded shadow w-full max-w-sm">
         <h1 className="text-xl font-semibold mb-4">Connexion</h1>
-        {error && <p className="text-red-600 mb-2">{error}</p>}
-        <label className="block mb-2">
-          <span>Email</span>
-          <input className="mt-1 w-full border p-2 rounded" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </label>
-        <label className="block mb-4">
-          <span>Mot de passe</span>
-          <input type="password" className="mt-1 w-full border p-2 rounded" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </label>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded w-full">Se connecter</button>
+
+        {errors.general && (
+          <div className="bg-red-100 text-red-700 p-2 mb-4 rounded">
+            {errors.general}
+          </div>
+        )}
+
+        <input
+          className="border p-2 w-full mb-1"
+          placeholder="Email"
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+        />
+        {errors.email && <p className="text-red-600 text-sm mb-2">{errors.email}</p>}
+
+        <input
+          type="password"
+          className="border p-2 w-full mb-1"
+          placeholder="Mot de passe"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+        />
+        {errors.password && <p className="text-red-600 text-sm mb-4">{errors.password}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className={`px-4 py-2 rounded w-full text-white ${loading ? 'bg-gray-400' : 'bg-green-600'}`}
+        >
+          {loading ? (
+            <span className="flex items-center justify-center">
+              <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
+              </svg>
+              Connexion...
+            </span>
+          ) : (
+            'Se connecter'
+          )}
+        </button>
       </form>
     </div>
   );

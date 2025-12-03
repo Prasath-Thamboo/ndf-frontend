@@ -5,6 +5,8 @@ export default function UserDashboard() {
       <p className="mt-2 text-gray-600">
         Ici vous pourrez créer et consulter vos notes de frais.
       </p>
+
+
     </div>
   );
 }
