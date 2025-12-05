@@ -1,4 +1,4 @@
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -17,12 +17,7 @@ export default function Navbar() {
             Déconnexion
           </button>
         </div>
-      ) : (
-        <div className="space-x-4">
-          <a href="/login" className="text-gray-300 hover:text-white">Connexion</a>
-          <a href="/register" className="text-gray-300 hover:text-white">Inscription</a>
-        </div>
-      )}
+      ) : null}
     </nav>
   );
 }
