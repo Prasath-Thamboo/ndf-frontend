@@ -83,6 +83,34 @@ export default function UserDashboard() {
     }
   };
 
+  const handleScan = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("receipt", file);
+
+  try {
+    const res = await API.post("/scan", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    // pré-remplir le formulaire
+    const data = res.data;
+    setForm({
+      title: data.title || "",
+      amount: data.amount || "",
+      date: data.date || "",
+      category: data.category || "autre",
+      description: data.description || "Données extraites automatiquement",
+    });
+  } catch (err) {
+    console.error(err);
+    setError("Échec de l'analyse du justificatif.");
+  }
+};
+
+
   return (
     <div className="space-y-8">
       <section className="bg-white rounded-lg shadow p-6">
@@ -159,14 +187,30 @@ export default function UserDashboard() {
               placeholder="Détails complémentaires du déplacement, repas, etc."
             />
           </div>
+          
 
-          <div className="md:col-span-2 flex justify-end">
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
-            >
-              Ajouter
-            </button>
+
+          <div className="md:col-span-2 flex items-center justify-between">
+            <div className="md:col-span-2 bg-gray-50 p-4 rounded shadow-lg">
+              <label className="block text-gray-700 mb-1">Importer un justificatif</label>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleScan}
+                className="w-full"
+              />
+              <p className="text-sm text-gray-500">
+                L’IA analysera automatiquement le montant, la date et le titre.
+              </p>
+            </div>
+            <div>
+              <button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
+              >
+                Ajouter
+              </button>
+            </div>
           </div>
         </form>
       </section>
