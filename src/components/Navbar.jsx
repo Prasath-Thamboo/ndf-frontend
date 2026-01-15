@@ -18,6 +18,15 @@ export default function Navbar() {
           </button>
         </div>
       ) : null}
+      {user && (
+        <a
+          href="/expenses/new"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+        >
+          Nouvelle note
+        </a>
+      )}
+
     </nav>
   );
 }

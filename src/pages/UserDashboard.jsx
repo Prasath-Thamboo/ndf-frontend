@@ -83,32 +83,39 @@ export default function UserDashboard() {
     }
   };
 
-  const handleScan = async (e) => {
-  const file = e.target.files[0];
+const handleScan = async (e) => {
+  const file = e.target.files?.[0];
   if (!file) return;
+
+  setError("");
 
   const formData = new FormData();
   formData.append("receipt", file);
 
   try {
-    const res = await API.post("/scan", formData, {
+    const res = await API.post("/expenses/scan-preview", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
 
-    // pré-remplir le formulaire
     const data = res.data;
-    setForm({
+
+    setForm((prev) => ({
+      ...prev,
       title: data.title || "",
-      amount: data.amount || "",
+      amount: data.amount ?? "",
       date: data.date || "",
       category: data.category || "autre",
       description: data.description || "Données extraites automatiquement",
-    });
+    }));
   } catch (err) {
     console.error(err);
-    setError("Échec de l'analyse du justificatif.");
+    setError(err.response?.data?.message || "Échec de l'analyse du justificatif.");
+  } finally {
+    // permet de re-sélectionner le même fichier
+    e.target.value = "";
   }
 };
+
 
 
   return (
@@ -244,7 +251,7 @@ export default function UserDashboard() {
                       {new Date(exp.date).toLocaleDateString()}
                     </td>
                     <td className="py-2">{exp.title}</td>
-                    <td className="py-2">{exp.amount.toFixed(2)} €</td>
+                    <td className="py-2">{Number(exp.amount).toFixed(2)} €</td>
                     <td className="py-2 capitalize">{exp.category}</td>
                     <td className="py-2 capitalize">
                       {exp.status === "pending" && (
