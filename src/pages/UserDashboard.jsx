@@ -4,6 +4,7 @@ import API from "../api";
 export default function UserDashboard() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [form, setForm] = useState({
     title: "",
     amount: "",
@@ -11,7 +12,9 @@ export default function UserDashboard() {
     category: "transport",
     description: "",
   });
+
   const [error, setError] = useState("");
+  const [scanLoading, setScanLoading] = useState(false);
 
   const fetchExpenses = async () => {
     try {
@@ -83,53 +86,50 @@ export default function UserDashboard() {
     }
   };
 
-const handleScan = async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const handleScan = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  setError("");
+    setError("");
+    setScanLoading(true);
 
-  const formData = new FormData();
-  formData.append("receipt", file);
+    const formData = new FormData();
+    formData.append("receipt", file);
 
-  try {
-    const res = await API.post("/expenses/scan-preview", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    try {
+      // ✅ Nouveau endpoint IA : /api/scan (baseURL /api => "/scan")
+      const res = await API.post("/scan", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-    const data = res.data;
+      const data = res.data;
 
-    setForm((prev) => ({
-      ...prev,
-      title: data.title || "",
-      amount: data.amount ?? "",
-      date: data.date || "",
-      category: data.category || "autre",
-      description: data.description || "Données extraites automatiquement",
-    }));
-  } catch (err) {
-    console.error(err);
-    setError(err.response?.data?.message || "Échec de l'analyse du justificatif.");
-  } finally {
-    // permet de re-sélectionner le même fichier
-    e.target.value = "";
-  }
-};
-
-
+      setForm((prev) => ({
+        ...prev,
+        title: data.title || "",
+        amount: data.amount ?? "",
+        date: data.date || "",
+        category: data.category || "autre",
+        description: data.description || "Données extraites automatiquement",
+      }));
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.response?.data?.message || "Échec de l'analyse du justificatif."
+      );
+    } finally {
+      setScanLoading(false);
+      // permet de re-sélectionner le même fichier
+      e.target.value = "";
+    }
+  };
 
   return (
     <div className="space-y-8">
       <section className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">
-          Nouvelle note de frais
-        </h2>
+        <h2 className="text-xl font-semibold mb-4">Nouvelle note de frais</h2>
 
-        {error && (
-          <p className="mb-4 text-red-600">
-            {error}
-          </p>
-        )}
+        {error && <p className="mb-4 text-red-600">{error}</p>}
 
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
@@ -194,26 +194,35 @@ const handleScan = async (e) => {
               placeholder="Détails complémentaires du déplacement, repas, etc."
             />
           </div>
-          
 
+          <div className="md:col-span-2 flex items-center justify-between gap-4">
+            <div className="md:col-span-2 bg-gray-50 p-4 rounded shadow-lg w-full">
+              <label className="block text-gray-700 mb-1">
+                Importer un justificatif
+              </label>
 
-          <div className="md:col-span-2 flex items-center justify-between">
-            <div className="md:col-span-2 bg-gray-50 p-4 rounded shadow-lg">
-              <label className="block text-gray-700 mb-1">Importer un justificatif</label>
               <input
                 type="file"
-                accept="image/*,application/pdf"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={handleScan}
                 className="w-full"
+                disabled={scanLoading}
               />
+
               <p className="text-sm text-gray-500">
                 L’IA analysera automatiquement le montant, la date et le titre.
               </p>
+
+              {scanLoading && (
+                <p className="mt-2 text-sm text-gray-700">Analyse en cours...</p>
+              )}
             </div>
-            <div>
+
+            <div className="shrink-0">
               <button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+                disabled={scanLoading}
               >
                 Ajouter
               </button>
@@ -223,9 +232,7 @@ const handleScan = async (e) => {
       </section>
 
       <section className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">
-          Mes notes de frais
-        </h2>
+        <h2 className="text-xl font-semibold mb-4">Mes notes de frais</h2>
 
         {loading ? (
           <p>Chargement...</p>
@@ -248,10 +255,12 @@ const handleScan = async (e) => {
                 {expenses.map((exp) => (
                   <tr key={exp._id} className="border-b hover:bg-gray-50">
                     <td className="py-2">
-                      {new Date(exp.date).toLocaleDateString()}
+                      {exp.date ? new Date(exp.date).toLocaleDateString() : "-"}
                     </td>
                     <td className="py-2">{exp.title}</td>
-                    <td className="py-2">{Number(exp.amount).toFixed(2)} €</td>
+                    <td className="py-2">
+                      {Number(exp.amount).toFixed(2)} €
+                    </td>
                     <td className="py-2 capitalize">{exp.category}</td>
                     <td className="py-2 capitalize">
                       {exp.status === "pending" && (
@@ -275,6 +284,7 @@ const handleScan = async (e) => {
                         <button
                           onClick={() => handleDelete(exp._id)}
                           className="text-red-600 hover:underline text-sm"
+                          disabled={scanLoading}
                         >
                           Supprimer
                         </button>
