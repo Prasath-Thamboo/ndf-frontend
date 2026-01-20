@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
@@ -5,11 +6,38 @@ export default function Navbar() {
 
   return (
     <nav className="bg-gray-800 p-4 flex justify-between items-center">
-      <h1 className="text-white font-bold text-lg">Note de Frais</h1>
+      {/* Logo / Titre */}
+      <Link
+        to="/dashboard"
+        className="text-white font-bold text-lg hover:opacity-90"
+      >
+        Note de Frais
+      </Link>
 
-      {user ? (
+      {user && (
         <div className="flex items-center space-x-4">
-          <span className="text-gray-300">Bonjour, {user.name}</span>
+          {/* Accès Dashboard */}
+          <Link
+            to="/dashboard"
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded"
+          >
+            Dashboard
+          </Link>
+
+          {/* Nouvelle note */}
+          <Link
+            to="/expenses/new"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          >
+            Nouvelle note
+          </Link>
+
+          {/* User info */}
+          <span className="text-gray-300">
+            Bonjour, {user.name}
+          </span>
+
+          {/* Logout */}
           <button
             onClick={logout}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
@@ -17,16 +45,7 @@ export default function Navbar() {
             Déconnexion
           </button>
         </div>
-      ) : null}
-      {user && (
-        <a
-          href="/expenses/new"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-        >
-          Nouvelle note
-        </a>
       )}
-
     </nav>
   );
 }

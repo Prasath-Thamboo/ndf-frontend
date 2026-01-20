@@ -14,6 +14,9 @@ export default function CreateExpense() {
     description: "",
   });
 
+  // YYYY-MM-DD (pour input type="date")
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+
   // =========================
   // Création MANUELLE (finale)
   // =========================
@@ -48,7 +51,7 @@ export default function CreateExpense() {
       setMode("manual");
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de l'enregistrement");
+      alert(err.response?.data?.message || "Erreur lors de l'enregistrement");
     } finally {
       setLoading(false);
     }
@@ -69,24 +72,43 @@ export default function CreateExpense() {
       const formData = new FormData();
       formData.append("receipt", receipt);
 
-      const res = await API.post("/expenses/scan-preview", formData);
+      const res = await API.post("/scan", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      // Règles demandées :
+      // 1) Date = aujourd'hui (toujours)
+      // 2) Titre = nom société (merchant) si disponible, sinon title, sinon fallback
+      const merchant =
+        typeof res.data?.merchant === "string" ? res.data.merchant.trim() : "";
+
+      const aiTitle =
+        typeof res.data?.title === "string" ? res.data.title.trim() : "";
+
+      const computedTitle = merchant || aiTitle || "Note de frais";
 
       setForm({
-        title: res.data.title || "",
-        amount: res.data.amount || "",
-        date: res.data.date || "",
+        title: computedTitle,
+        amount: res.data.amount ?? "",
+        date: todayISO(),
         category: res.data.category || "autre",
-        description: res.data.description || "",
+        description: res.data.description || "Données extraites automatiquement",
       });
 
       // bascule vers le mode manuel pour validation humaine
       setMode("manual");
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de l'analyse IA");
+      alert(err.response?.data?.message || "Erreur lors de l'analyse IA");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setReceipt(file);
+    e.target.value = "";
   };
 
   return (
@@ -99,10 +121,9 @@ export default function CreateExpense() {
           type="button"
           onClick={() => setMode("manual")}
           className={`px-4 py-2 rounded ${
-            mode === "manual"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200"
+            mode === "manual" ? "bg-blue-600 text-white" : "bg-gray-200"
           }`}
+          disabled={loading}
         >
           Création manuelle
         </button>
@@ -111,10 +132,9 @@ export default function CreateExpense() {
           type="button"
           onClick={() => setMode("scan")}
           className={`px-4 py-2 rounded ${
-            mode === "scan"
-              ? "bg-green-600 text-white"
-              : "bg-gray-200"
+            mode === "scan" ? "bg-green-600 text-white" : "bg-gray-200"
           }`}
+          disabled={loading}
         >
           Scan IA
         </button>
@@ -127,9 +147,7 @@ export default function CreateExpense() {
             className="input"
             placeholder="Titre"
             value={form.title}
-            onChange={(e) =>
-              setForm({ ...form, title: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
             required
           />
 
@@ -139,9 +157,7 @@ export default function CreateExpense() {
             step="0.01"
             placeholder="Montant"
             value={form.amount}
-            onChange={(e) =>
-              setForm({ ...form, amount: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, amount: e.target.value })}
             required
           />
 
@@ -149,18 +165,14 @@ export default function CreateExpense() {
             className="input"
             type="date"
             value={form.date}
-            onChange={(e) =>
-              setForm({ ...form, date: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
             required
           />
 
           <select
             className="input"
             value={form.category}
-            onChange={(e) =>
-              setForm({ ...form, category: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
           >
             <option value="transport">Transport</option>
             <option value="repas">Repas</option>
@@ -179,13 +191,15 @@ export default function CreateExpense() {
 
           <input
             type="file"
-            onChange={(e) => setReceipt(e.target.files[0])}
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            disabled={loading}
           />
 
           <button
             type="submit"
             disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
+            className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
           >
             {loading ? "Enregistrement..." : "Valider la note"}
           </button>
@@ -197,14 +211,16 @@ export default function CreateExpense() {
         <div className="space-y-4">
           <input
             type="file"
-            onChange={(e) => setReceipt(e.target.files[0])}
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            disabled={loading}
           />
 
           <button
             type="button"
             onClick={handleScanPreview}
-            disabled={loading}
-            className="bg-green-600 text-white px-4 py-2 rounded"
+            disabled={loading || !receipt}
+            className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
           >
             {loading ? "Analyse en cours..." : "Scanner le justificatif"}
           </button>
