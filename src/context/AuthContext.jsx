@@ -1,6 +1,6 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
-import API, { setAuthToken, setOnUnauthorized } from '../api';
-import { useNavigate } from 'react-router-dom';
+import React, { createContext, useState, useEffect, useCallback } from "react";
+import API, { setAuthToken, setOnUnauthorized } from "../api";
+import { useNavigate } from "react-router-dom";
 
 export const AuthContext = createContext();
 
@@ -10,10 +10,10 @@ export function AuthProvider({ children }) {
   const nav = useNavigate();
 
   const logout = useCallback(() => {
-    localStorage.removeItem('accessToken');
+    localStorage.removeItem("accessToken");
     setAuthToken(null);
     setUser(null);
-    nav('/login');
+    nav("/login");
   }, [nav]);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem("accessToken");
     if (!token) {
       setLoadingAuth(false);
       return;
@@ -29,38 +29,43 @@ export function AuthProvider({ children }) {
 
     setAuthToken(token);
 
-    API.get('/auth/me')
-      .then(res => setUser(res.data))
+    API.get("/auth/me")
+      .then((res) => setUser(res.data))
       .catch(() => {
-        localStorage.removeItem('accessToken');
+        localStorage.removeItem("accessToken");
         setAuthToken(null);
+        setUser(null);
       })
       .finally(() => setLoadingAuth(false));
   }, []);
 
   const login = async ({ email, password }) => {
-    const res = await API.post('/auth/login', { email, password });
+    const res = await API.post("/auth/login", { email, password });
+
     const token = res.data.token;
-    localStorage.setItem('accessToken', token);
+    localStorage.setItem("accessToken", token);
     setAuthToken(token);
 
-    const me = await API.get('/auth/me');
+    // soit on prend res.data.user, soit /me (ici /me pour être sûr)
+    const me = await API.get("/auth/me");
     setUser(me.data);
 
-    nav('/dashboard');
+    nav("/"); // ✅ ton dashboard actuel est sur "/"
   };
 
-  const register = async ({ name, email, password }) => {
-    const res = await API.post('/auth/register', { name, email, password });
-    const token = res.data.token;
+  const register = async ({ name, email, password, accountType, companyName, inviteCode }) => {
+    // ✅ register ne renvoie pas de token dans ton backend
+    await API.post("/auth/register", {
+      name,
+      email,
+      password,
+      accountType,   // "solo" | "company"
+      companyName,   // si création entreprise manager
+      inviteCode,    // si employee rejoint entreprise
+    });
 
-    localStorage.setItem('accessToken', token);
-    setAuthToken(token);
-
-    const me = await API.get('/auth/me');
-    setUser(me.data);
-
-    nav('/dashboard');
+    // ✅ login auto après inscription
+    await login({ email, password });
   };
 
   return (
