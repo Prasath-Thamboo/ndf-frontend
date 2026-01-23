@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UserDashboard from "./pages/UserDashboard";
 import CreateExpense from "./pages/CreateExpense";
+import ManagerDashboard from "./pages/ManagerDashboard";
 
 export default function App() {
   return (
@@ -36,6 +37,16 @@ export default function App() {
             element={
               <PrivateRoute>
                 <CreateExpense />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Manager */}
+          <Route
+            path="/manager"
+            element={
+              <PrivateRoute>
+                <ManagerDashboard />
               </PrivateRoute>
             }
           />

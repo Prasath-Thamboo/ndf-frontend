@@ -4,6 +4,10 @@ import { useAuth } from "../context/AuthContext";
 export default function Navbar() {
   const { user, logout } = useAuth();
 
+  const isManager =
+    user?.accountType === "company" &&
+    (user?.role === "manager" || user?.role === "admin");
+
   return (
     <nav className="bg-gray-800 p-4 flex justify-between items-center">
       {/* Logo / Titre */}
@@ -24,6 +28,16 @@ export default function Navbar() {
             Dashboard
           </Link>
 
+          {/* Manager */}
+          {isManager && (
+            <Link
+              to="/manager"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
+            >
+              Manager
+            </Link>
+          )}
+
           {/* Nouvelle note */}
           <Link
             to="/expenses/new"
@@ -33,9 +47,7 @@ export default function Navbar() {
           </Link>
 
           {/* User info */}
-          <span className="text-gray-300">
-            Bonjour, {user.name}
-          </span>
+          <span className="text-gray-300">Bonjour, {user.name}</span>
 
           {/* Logout */}
           <button

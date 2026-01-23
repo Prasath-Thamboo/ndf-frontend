@@ -35,7 +35,8 @@ export default function CreateExpense() {
         formData.append("receipt", receipt);
       }
 
-      await API.post("/expenses", formData);
+      // ✅ évite le timeout 10s si la réponse prend plus de temps
+      await API.post("/expenses", formData, { timeout: 60000 });
 
       alert("Note de frais enregistrée");
 
@@ -51,6 +52,14 @@ export default function CreateExpense() {
       setMode("manual");
     } catch (err) {
       console.error(err);
+
+      if (err.code === "ECONNABORTED") {
+        alert(
+          "Réponse trop lente (timeout). La note a peut-être été enregistrée. Recharge le dashboard pour vérifier."
+        );
+        return;
+      }
+
       alert(err.response?.data?.message || "Erreur lors de l'enregistrement");
     } finally {
       setLoading(false);
@@ -74,6 +83,7 @@ export default function CreateExpense() {
 
       const res = await API.post("/scan", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60000,
       });
 
       // Règles demandées :
@@ -99,6 +109,12 @@ export default function CreateExpense() {
       setMode("manual");
     } catch (err) {
       console.error(err);
+
+      if (err.code === "ECONNABORTED") {
+        alert("Analyse trop lente (timeout). Réessaie.");
+        return;
+      }
+
       alert(err.response?.data?.message || "Erreur lors de l'analyse IA");
     } finally {
       setLoading(false);
@@ -184,9 +200,7 @@ export default function CreateExpense() {
             className="input"
             placeholder="Description"
             value={form.description}
-            onChange={(e) =>
-              setForm({ ...form, description: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
 
           <input
