@@ -14,33 +14,21 @@ export default function CreateExpense() {
     description: "",
   });
 
-  // YYYY-MM-DD (pour input type="date")
   const todayISO = () => new Date().toISOString().slice(0, 10);
 
-  // =========================
-  // Création MANUELLE (finale)
-  // =========================
   const handleManualSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const formData = new FormData();
+      Object.entries(form).forEach(([k, v]) => formData.append(k, v));
+      if (receipt) formData.append("receipt", receipt);
 
-      Object.entries(form).forEach(([key, value]) => {
-        formData.append(key, value);
-      });
-
-      if (receipt) {
-        formData.append("receipt", receipt);
-      }
-
-      // ✅ évite le timeout 10s si la réponse prend plus de temps
       await API.post("/expenses", formData, { timeout: 60000 });
 
       alert("Note de frais enregistrée");
 
-      // reset
       setForm({
         title: "",
         amount: "",
@@ -51,95 +39,74 @@ export default function CreateExpense() {
       setReceipt(null);
       setMode("manual");
     } catch (err) {
-      console.error(err);
-
       if (err.code === "ECONNABORTED") {
         alert(
-          "Réponse trop lente (timeout). La note a peut-être été enregistrée. Recharge le dashboard pour vérifier."
+          "Temps de réponse trop long. La note a peut-être été enregistrée."
         );
         return;
       }
-
       alert(err.response?.data?.message || "Erreur lors de l'enregistrement");
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================
-  // Scan IA → pré-remplissage
-  // =========================
   const handleScanPreview = async () => {
-    if (!receipt) {
-      alert("Veuillez sélectionner un justificatif");
-      return;
-    }
+    if (!receipt) return alert("Sélectionne un justificatif");
 
     setLoading(true);
-
     try {
       const formData = new FormData();
       formData.append("receipt", receipt);
 
-      const res = await API.post("/scan", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        timeout: 60000,
-      });
+      const res = await API.post("/scan", formData, { timeout: 60000 });
 
-      // Règles demandées :
-      // 1) Date = aujourd'hui (toujours)
-      // 2) Titre = nom société (merchant) si disponible, sinon title, sinon fallback
-      const merchant =
-        typeof res.data?.merchant === "string" ? res.data.merchant.trim() : "";
-
-      const aiTitle =
-        typeof res.data?.title === "string" ? res.data.title.trim() : "";
-
-      const computedTitle = merchant || aiTitle || "Note de frais";
+      const merchant = res.data?.merchant?.trim() || "";
+      const aiTitle = res.data?.title?.trim() || "";
 
       setForm({
-        title: computedTitle,
+        title: merchant || aiTitle || "Note de frais",
         amount: res.data.amount ?? "",
         date: todayISO(),
         category: res.data.category || "autre",
-        description: res.data.description || "Données extraites automatiquement",
+        description:
+          res.data.description || "Données extraites automatiquement",
       });
 
-      // bascule vers le mode manuel pour validation humaine
       setMode("manual");
     } catch (err) {
-      console.error(err);
-
-      if (err.code === "ECONNABORTED") {
-        alert("Analyse trop lente (timeout). Réessaie.");
-        return;
-      }
-
-      alert(err.response?.data?.message || "Erreur lors de l'analyse IA");
+      alert(err.response?.data?.message || "Erreur analyse IA");
     } finally {
       setLoading(false);
     }
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0] || null;
-    setReceipt(file);
+    setReceipt(e.target.files?.[0] || null);
     e.target.value = "";
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-6 rounded shadow">
-      <h1 className="text-xl font-bold mb-6">Créer une note de frais</h1>
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h1 className="text-2xl font-semibold">Créer une note de frais</h1>
+        <p className="text-gray-600 mt-1">
+          Ajoute une dépense manuellement ou scanne un justificatif.
+        </p>
+      </div>
 
-      {/* Sélecteur de mode */}
-      <div className="flex gap-4 mb-6">
+      {/* Mode selector */}
+      <div className="bg-white rounded-lg shadow p-4 flex gap-3">
         <button
           type="button"
           onClick={() => setMode("manual")}
-          className={`px-4 py-2 rounded ${
-            mode === "manual" ? "bg-blue-600 text-white" : "bg-gray-200"
-          }`}
           disabled={loading}
+          className={`flex-1 py-2 rounded font-medium transition ${
+            mode === "manual"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 hover:bg-gray-200"
+          }`}
         >
           Création manuelle
         </button>
@@ -147,97 +114,151 @@ export default function CreateExpense() {
         <button
           type="button"
           onClick={() => setMode("scan")}
-          className={`px-4 py-2 rounded ${
-            mode === "scan" ? "bg-green-600 text-white" : "bg-gray-200"
-          }`}
           disabled={loading}
+          className={`flex-1 py-2 rounded font-medium transition ${
+            mode === "scan"
+              ? "bg-green-600 text-white"
+              : "bg-gray-100 hover:bg-gray-200"
+          }`}
         >
           Scan IA
         </button>
       </div>
 
-      {/* ================= MODE MANUEL ================= */}
+      {/* ================= MANUAL ================= */}
       {mode === "manual" && (
-        <form onSubmit={handleManualSubmit} className="space-y-4">
-          <input
-            className="input"
-            placeholder="Titre"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            required
-          />
+        <form
+          onSubmit={handleManualSubmit}
+          className="bg-white rounded-lg shadow p-6 space-y-4"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="label">Titre</label>
+              <input
+                className="input"
+                value={form.title}
+                onChange={(e) =>
+                  setForm({ ...form, title: e.target.value })
+                }
+                required
+              />
+            </div>
 
-          <input
-            className="input"
-            type="number"
-            step="0.01"
-            placeholder="Montant"
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            required
-          />
+            <div>
+              <label className="label">Montant (€)</label>
+              <input
+                className="input"
+                type="number"
+                step="0.01"
+                value={form.amount}
+                onChange={(e) =>
+                  setForm({ ...form, amount: e.target.value })
+                }
+                required
+              />
+            </div>
 
-          <input
-            className="input"
-            type="date"
-            value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
-            required
-          />
+            <div>
+              <label className="label">Date</label>
+              <input
+                className="input"
+                type="date"
+                value={form.date}
+                onChange={(e) =>
+                  setForm({ ...form, date: e.target.value })
+                }
+                required
+              />
+            </div>
 
-          <select
-            className="input"
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-          >
-            <option value="transport">Transport</option>
-            <option value="repas">Repas</option>
-            <option value="hébergement">Hébergement</option>
-            <option value="autre">Autre</option>
-          </select>
+            <div>
+              <label className="label">Catégorie</label>
+              <select
+                className="input"
+                value={form.category}
+                onChange={(e) =>
+                  setForm({ ...form, category: e.target.value })
+                }
+              >
+                <option value="transport">Transport</option>
+                <option value="repas">Repas</option>
+                <option value="hébergement">Hébergement</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+          </div>
 
-          <textarea
-            className="input"
-            placeholder="Description"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
+          <div>
+            <label className="label">Description</label>
+            <textarea
+              className="input"
+              rows={3}
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
+            />
+          </div>
 
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleFileChange}
-            disabled={loading}
-          />
+          <div>
+            <label className="label">Justificatif</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFileChange}
+              disabled={loading}
+            />
+            {receipt && (
+              <p className="text-sm text-gray-500 mt-1">
+                Fichier sélectionné : {receipt.name}
+              </p>
+            )}
+          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
-          >
-            {loading ? "Enregistrement..." : "Valider la note"}
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? "Enregistrement..." : "Valider la note"}
+            </button>
+          </div>
         </form>
       )}
 
-      {/* ================= MODE SCAN IA ================= */}
+      {/* ================= SCAN IA ================= */}
       {mode === "scan" && (
-        <div className="space-y-4">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleFileChange}
-            disabled={loading}
-          />
+        <div className="bg-white rounded-lg shadow p-6 space-y-4">
+          <p className="text-gray-600 text-sm">
+            Téléverse un justificatif, l’IA pré-remplira la note automatiquement.
+          </p>
 
-          <button
-            type="button"
-            onClick={handleScanPreview}
-            disabled={loading || !receipt}
-            className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
-          >
-            {loading ? "Analyse en cours..." : "Scanner le justificatif"}
-          </button>
+          <div>
+            <label className="label">Justificatif</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFileChange}
+              disabled={loading}
+            />
+            {receipt && (
+              <p className="text-sm text-gray-500 mt-1">
+                Fichier sélectionné : {receipt.name}
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleScanPreview}
+              disabled={loading || !receipt}
+              className="px-6 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {loading ? "Analyse en cours..." : "Scanner le justificatif"}
+            </button>
+          </div>
         </div>
       )}
     </div>

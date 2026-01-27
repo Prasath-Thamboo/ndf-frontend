@@ -14,13 +14,18 @@ export default function ManagerDashboard() {
   const [pendingExpenses, setPendingExpenses] = useState([]);
   const [loadingPending, setLoadingPending] = useState(false);
 
-  // évite de bloquer toute la page pour un seul chargement
   const [error, setError] = useState("");
 
-  // états UI pour actions approve/reject
+  // approve / reject
   const [actingId, setActingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+
+  // export email (batch)
+  const [exportTo, setExportTo] = useState("");
+  const [exportMessage, setExportMessage] = useState("");
+  const [exportSending, setExportSending] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState("");
 
   const isManager = useMemo(() => {
     return (
@@ -29,6 +34,9 @@ export default function ManagerDashboard() {
     );
   }, [user]);
 
+  /* =======================
+     FETCH
+  ======================= */
   const fetchCompany = async () => {
     try {
       setError("");
@@ -81,6 +89,9 @@ export default function ManagerDashboard() {
     fetchPendingExpenses();
   }, [isManager]);
 
+  /* =======================
+     INVITE
+  ======================= */
   const handleCopy = async () => {
     if (!company?.inviteCode) return;
     try {
@@ -125,13 +136,14 @@ export default function ManagerDashboard() {
     }
   };
 
-  // ✅ APPROUVER une note
+  /* =======================
+     APPROVE / REJECT
+  ======================= */
   const approveExpense = async (expenseId) => {
     try {
       setError("");
       setActingId(expenseId);
       await API.patch(`/expenses/${expenseId}/approve`);
-      // retire la note de la liste pending (optimiste)
       setPendingExpenses((prev) => prev.filter((x) => x._id !== expenseId));
     } catch (e) {
       setError(e.response?.data?.message || "Erreur lors de l'approbation.");
@@ -140,7 +152,6 @@ export default function ManagerDashboard() {
     }
   };
 
-  // ✅ ouvrir le mode refus
   const openReject = (expenseId) => {
     setRejectingId(expenseId);
     setRejectReason("");
@@ -151,7 +162,6 @@ export default function ManagerDashboard() {
     setRejectReason("");
   };
 
-  // ✅ REFUSER une note
   const rejectExpense = async () => {
     if (!rejectingId) return;
     try {
@@ -170,6 +180,33 @@ export default function ManagerDashboard() {
     }
   };
 
+  /* =======================
+     EXPORT EMAIL (BATCH)
+  ======================= */
+  const sendAllExpensesByEmail = async () => {
+    try {
+      setError("");
+      setExportSuccess("");
+      setExportSending(true);
+
+      await API.post("/expenses/email", {
+        to: exportTo.trim(),
+        message: exportMessage.trim(),
+      });
+
+      setExportSuccess("Email envoyé avec succès.");
+      setExportTo("");
+      setExportMessage("");
+    } catch (e) {
+      setError(
+        e.response?.data?.message ||
+          "Erreur lors de l'envoi des notes par email."
+      );
+    } finally {
+      setExportSending(false);
+    }
+  };
+
   if (!isManager) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
@@ -179,56 +216,70 @@ export default function ManagerDashboard() {
     );
   }
 
-  
-
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow p-6">
         <h1 className="text-xl font-semibold">Manager Dashboard</h1>
-        <p className="text-gray-600 mt-1">Inviter et gérer les employés.</p>
+        <p className="text-gray-600 mt-1">
+          Gestion des employés et validation des notes de frais.
+        </p>
         {error && <p className="mt-4 text-red-600">{error}</p>}
+        {exportSuccess && (
+          <p className="mt-4 text-green-600">{exportSuccess}</p>
+        )}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Invitation</h2>
+      {/* =======================
+          EXPORT EMAIL
+      ======================= */}
+      <div className="bg-white rounded-lg shadow p-6 space-y-3">
+        <h2 className="text-lg font-semibold">
+          Envoyer les notes de frais par email
+        </h2>
+        <p className="text-sm text-gray-600">
+          Seules les notes <strong>approuvées</strong> de l’entreprise seront
+          envoyées.
+        </p>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="border rounded p-4">
-            <p className="text-sm text-gray-500">Entreprise</p>
-            <p className="font-medium">{company?.name || "-"}</p>
+          <div>
+            <label className="text-sm text-gray-600">Destinataire</label>
+            <input
+              value={exportTo}
+              onChange={(e) => setExportTo(e.target.value)}
+              placeholder="email@domaine.com"
+              className="mt-1 w-full border rounded px-3 py-2"
+              disabled={exportSending}
+            />
           </div>
 
-          <div className="border rounded p-4">
-            <p className="text-sm text-gray-500">Code d’invitation</p>
-            <div className="flex items-center gap-2 mt-1">
-              <code className="px-2 py-1 bg-gray-100 rounded font-semibold">
-                {company?.inviteCode || "—"}
-              </code>
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-                disabled={!company?.inviteCode}
-              >
-                Copier
-              </button>
-              <button
-                type="button"
-                onClick={handleRegenerate}
-                className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
-                disabled={inviteLoading}
-              >
-                {inviteLoading ? "..." : "Régénérer"}
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Les employés s’inscrivent avec ce code (mode entreprise &gt;
-              employé).
-            </p>
+          <div>
+            <label className="text-sm text-gray-600">Message (optionnel)</label>
+            <input
+              value={exportMessage}
+              onChange={(e) => setExportMessage(e.target.value)}
+              placeholder="Message..."
+              className="mt-1 w-full border rounded px-3 py-2"
+              disabled={exportSending}
+            />
           </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={sendAllExpensesByEmail}
+            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            disabled={exportSending || !exportTo.trim()}
+          >
+            {exportSending ? "Envoi..." : "Envoyer par email"}
+          </button>
         </div>
       </div>
 
+      {/* =======================
+          EMPLOYEES
+      ======================= */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">Employés</h2>
@@ -296,6 +347,9 @@ export default function ManagerDashboard() {
         )}
       </div>
 
+      {/* =======================
+          PENDING EXPENSES
+      ======================= */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">Notes en attente</h2>
@@ -326,7 +380,6 @@ export default function ManagerDashboard() {
                   <th className="py-2 text-right">Actions</th>
                 </tr>
               </thead>
-
               <tbody>
                 {pendingExpenses.map((ex) => {
                   const isActing = actingId === ex._id;
@@ -335,21 +388,26 @@ export default function ManagerDashboard() {
                   return (
                     <tr key={ex._id} className="border-b hover:bg-gray-50">
                       <td className="py-2">{ex.title}</td>
-                      <td className="py-2">{Number(ex.amount).toFixed(2)} €</td>
+                      <td className="py-2">
+                        {Number(ex.amount).toFixed(2)} €
+                      </td>
                       <td className="py-2">
                         {new Date(ex.date).toLocaleDateString()}
                       </td>
-                      <td className="py-2 capitalize">{ex.category || "—"}</td>
+                      <td className="py-2 capitalize">
+                        {ex.category || "—"}
+                      </td>
                       <td className="py-2">
                         {ex.user?.name || ex.user?.email || "—"}
                       </td>
-
                       <td className="py-2 text-right">
                         {isRejecting ? (
                           <div className="flex flex-col items-end gap-2">
                             <input
                               value={rejectReason}
-                              onChange={(e) => setRejectReason(e.target.value)}
+                              onChange={(e) =>
+                                setRejectReason(e.target.value)
+                              }
                               placeholder="Motif (optionnel)"
                               className="w-64 max-w-full border rounded px-2 py-1 text-sm"
                               disabled={isActing}

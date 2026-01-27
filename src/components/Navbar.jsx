@@ -49,6 +49,13 @@ export default function Navbar() {
           {/* User info */}
           <span className="text-gray-300">Bonjour, {user.name}</span>
 
+          <Link
+            to="/settings"
+            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+          >
+            Paramètres du compte
+          </Link>
+
           {/* Logout */}
           <button
             onClick={logout}

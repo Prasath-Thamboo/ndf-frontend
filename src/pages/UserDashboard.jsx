@@ -1,5 +1,7 @@
+// src/pages/UserDashboard.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../api";
+import { useAuth } from "../context/AuthContext";
 import {
   ResponsiveContainer,
   ScatterChart,
@@ -11,6 +13,8 @@ import {
 } from "recharts";
 
 export default function UserDashboard() {
+  const { user } = useAuth();
+
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,6 +25,29 @@ export default function UserDashboard() {
   // on choisit explicitement quel mois/semaine afficher dans le graphe
   const [selectedMonth, setSelectedMonth] = useState("all"); // "all" | "YYYY-MM"
   const [selectedWeek, setSelectedWeek] = useState("all"); // "all" | "YYYY-Www"
+
+  // ===== Export Email (batch) =====
+  const [exportTo, setExportTo] = useState("");
+  const [exportMessage, setExportMessage] = useState("");
+  const [exportSending, setExportSending] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState("");
+
+  const canExportEmail = useMemo(() => {
+    if (!user) return false;
+    if (user.accountType === "solo") return true;
+    if (
+      user.accountType === "company" &&
+      (user.role === "manager" || user.role === "admin")
+    )
+      return true;
+    return false;
+  }, [user]);
+
+  const exportHint = useMemo(() => {
+    if (!user) return "";
+    if (user.accountType === "solo") return "Enverra toutes vos notes de frais.";
+    return "Enverra uniquement les notes approuvées de l’entreprise.";
+  }, [user]);
 
   const fetchExpenses = async () => {
     try {
@@ -55,6 +82,31 @@ export default function UserDashboard() {
     }
   };
 
+  const sendAllExpensesByEmail = async () => {
+    try {
+      setError("");
+      setExportSuccess("");
+      setExportSending(true);
+
+      await API.post("/expenses/email", {
+        to: exportTo.trim(),
+        message: exportMessage.trim(),
+      });
+
+      setExportSuccess("Email envoyé avec succès.");
+      setExportTo("");
+      setExportMessage("");
+    } catch (e) {
+      console.error(e);
+      setError(
+        e.response?.data?.message ||
+          "Erreur lors de l'envoi des notes par email."
+      );
+    } finally {
+      setExportSending(false);
+    }
+  };
+
   // ---------- Helpers ----------
   const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -62,7 +114,9 @@ export default function UserDashboard() {
 
   // ISO week: YYYY-Www
   const getISOWeekKey = (date) => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const d = new Date(
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+    );
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
@@ -78,8 +132,6 @@ export default function UserDashboard() {
     const [y, w] = yw.split("-W");
     return `S${w} (${y})`;
   };
-
-  const weekdayFR = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
 
   // ---------- Années disponibles ----------
   const availableYears = useMemo(() => {
@@ -159,11 +211,8 @@ export default function UserDashboard() {
       return items
         .filter((e) => monthKey(e._d) === selectedMonth)
         .map((e, idx) => ({
-          // X = jour du mois (1..31)
           x: e._d.getDate(),
-          // Y = montant
           y: e.amountNum,
-          // meta
           id: e._id || `${idx}`,
           title: e.title,
           date: e._d.toLocaleDateString("fr-FR"),
@@ -172,14 +221,11 @@ export default function UserDashboard() {
         }));
     }
 
-    // weekly
     if (!selectedWeek || selectedWeek === "all") return [];
 
     return items
       .filter((e) => getISOWeekKey(e._d) === selectedWeek)
       .map((e, idx) => ({
-        // X = jour de semaine (1..7) (lun=1 ... dim=7)
-        // JS: dim=0 ... sam=6 => convert
         x: ((e._d.getDay() + 6) % 7) + 1,
         y: e.amountNum,
         id: e._id || `${idx}`,
@@ -194,7 +240,7 @@ export default function UserDashboard() {
   const monthDays = useMemo(() => {
     if (mode !== "monthly" || !selectedMonth || selectedMonth === "all") return 31;
     const [y, m] = selectedMonth.split("-").map(Number);
-    const lastDay = new Date(y, m, 0).getDate(); // m est 1-based ici
+    const lastDay = new Date(y, m, 0).getDate();
     return lastDay;
   }, [mode, selectedMonth]);
 
@@ -228,6 +274,58 @@ export default function UserDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* ===== EXPORT EMAIL (solo / manager uniquement) ===== */}
+      {canExportEmail && (
+        <section className="bg-white rounded-lg shadow p-6 space-y-3">
+          <h2 className="text-xl font-semibold">Envoyer mes notes par email</h2>
+          <p className="text-sm text-gray-600">{exportHint}</p>
+
+          {exportSuccess && (
+            <p className="text-green-600 text-sm">{exportSuccess}</p>
+          )}
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-sm text-gray-600">Destinataire</label>
+              <input
+                value={exportTo}
+                onChange={(e) => setExportTo(e.target.value)}
+                placeholder="email@domaine.com"
+                className="mt-1 w-full border rounded px-3 py-2"
+                disabled={exportSending}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-600">Message (optionnel)</label>
+              <input
+                value={exportMessage}
+                onChange={(e) => setExportMessage(e.target.value)}
+                placeholder="Message..."
+                className="mt-1 w-full border rounded px-3 py-2"
+                disabled={exportSending}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={sendAllExpensesByEmail}
+              className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              disabled={exportSending || !exportTo.trim()}
+            >
+              {exportSending ? "Envoi..." : "Envoyer par email"}
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Le backend applique les règles d’accès (solo autorisé, company: manager/admin + notes approuvées).
+          </p>
+        </section>
+      )}
+
       {/* ===== GRAPHIQUE POINTS PAR DEPENSE ===== */}
       <section className="bg-white rounded-lg shadow p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -308,17 +406,23 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {error && <p className="mt-4 text-red-600">{error}</p>}
+        {!canExportEmail && error && <p className="mt-4 text-red-600">{error}</p>}
 
         <div className="mt-6 h-80">
           {loading ? (
             <p>Chargement...</p>
           ) : mode === "monthly" && (!selectedMonth || selectedMonth === "all") ? (
-            <p className="text-gray-500">Sélectionne un mois pour afficher les points (1 point = 1 dépense).</p>
+            <p className="text-gray-500">
+              Sélectionne un mois pour afficher les points (1 point = 1 dépense).
+            </p>
           ) : mode === "weekly" && (!selectedWeek || selectedWeek === "all") ? (
-            <p className="text-gray-500">Sélectionne une semaine pour afficher les points (1 point = 1 dépense).</p>
+            <p className="text-gray-500">
+              Sélectionne une semaine pour afficher les points (1 point = 1 dépense).
+            </p>
           ) : scatterData.length === 0 ? (
-            <p className="text-gray-500">Aucune dépense dans la période sélectionnée.</p>
+            <p className="text-gray-500">
+              Aucune dépense dans la période sélectionnée.
+            </p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
@@ -327,14 +431,11 @@ export default function UserDashboard() {
                 <XAxis
                   type="number"
                   dataKey="x"
-                  domain={
-                    mode === "monthly" ? [1, monthDays] : [1, 7]
-                  }
+                  domain={mode === "monthly" ? [1, monthDays] : [1, 7]}
                   allowDecimals={false}
                   tickCount={mode === "monthly" ? monthDays : 7}
                   tickFormatter={(v) => {
-                    if (mode === "monthly") return String(v); // jour du mois
-                    // weekly: 1..7 -> lun..dim
+                    if (mode === "monthly") return String(v);
                     return ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"][v - 1] || v;
                   }}
                 />
@@ -345,10 +446,7 @@ export default function UserDashboard() {
                   tickFormatter={(v) => `${Number(v).toFixed(0)}€`}
                 />
 
-                <Tooltip
-                  cursor={{ strokeDasharray: "3 3" }}
-                  formatter={tooltipFormatter}
-                />
+                <Tooltip cursor={{ strokeDasharray: "3 3" }} formatter={tooltipFormatter} />
 
                 <Scatter data={scatterData} />
               </ScatterChart>
@@ -382,10 +480,14 @@ export default function UserDashboard() {
                 {tableList.map((exp) => (
                   <tr key={exp._id} className="border-b hover:bg-gray-50">
                     <td className="py-2 px-4">
-                      {exp.date ? new Date(exp.date).toLocaleDateString("fr-FR") : "-"}
+                      {exp.date
+                        ? new Date(exp.date).toLocaleDateString("fr-FR")
+                        : "-"}
                     </td>
                     <td className="py-2 px-4">{exp.title}</td>
-                    <td className="py-2 px-4">{Number(exp.amount).toFixed(2)} €</td>
+                    <td className="py-2 px-4">
+                      {Number(exp.amount).toFixed(2)} €
+                    </td>
                     <td className="py-2 px-4 capitalize">{exp.category}</td>
                     <td className="py-2 px-4 capitalize">
                       {exp.status === "pending" && (
