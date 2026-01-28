@@ -1,3 +1,4 @@
+// frontend/src/context/AuthContext.jsx
 import React, { createContext, useState, useEffect, useCallback } from "react";
 import API, { setAuthToken, setOnUnauthorized } from "../api";
 import { useNavigate } from "react-router-dom";
@@ -37,6 +38,7 @@ export function AuthProvider({ children }) {
         setUser(null);
       })
       .finally(() => setLoadingAuth(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async ({ email, password }) => {
@@ -46,30 +48,44 @@ export function AuthProvider({ children }) {
     localStorage.setItem("accessToken", token);
     setAuthToken(token);
 
-    // soit on prend res.data.user, soit /me (ici /me pour être sûr)
     const me = await API.get("/auth/me");
     setUser(me.data);
 
-    nav("/"); // ✅ ton dashboard actuel est sur "/"
+    nav("/");
   };
 
-  const register = async ({ name, email, password, accountType, companyName, inviteCode }) => {
-    // ✅ register ne renvoie pas de token dans ton backend
+  const register = async ({
+    name,
+    email,
+    password,
+    accountType,
+    companyName,
+    inviteCode,
+  }) => {
     await API.post("/auth/register", {
       name,
       email,
       password,
-      accountType,   // "solo" | "company"
-      companyName,   // si création entreprise manager
-      inviteCode,    // si employee rejoint entreprise
+      accountType,
+      companyName,
+      inviteCode,
     });
 
-    // ✅ login auto après inscription
     await login({ email, password });
   };
 
+  // ✅ AJOUT : helper pour mettre à jour l’utilisateur en mémoire
+  // (utile après PATCH /auth/me pour refléter le nouveau nom dans la navbar)
+  const refreshMe = async () => {
+    const me = await API.get("/auth/me");
+    setUser(me.data);
+    return me.data;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loadingAuth }}>
+    <AuthContext.Provider
+      value={{ user, login, register, logout, loadingAuth, refreshMe }}
+    >
       {loadingAuth ? <div className="p-8">Chargement...</div> : children}
     </AuthContext.Provider>
   );
