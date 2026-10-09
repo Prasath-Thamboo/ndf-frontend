@@ -1,67 +1,53 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import Navbar from "./components/Navbar";
+import AppLayout from "./components/AppLayout";
 import PrivateRoute from "./components/PrivateRoute";
+import { Spinner } from "./components/ui";
 
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import UserDashboard from "./pages/UserDashboard";
-import CreateExpense from "./pages/CreateExpense";
-import ManagerDashboard from "./pages/ManagerDashboard";
-import AccountSettings from "./pages/AccountSettings";
+// Pages chargées à la demande (le graphique du dashboard est lourd)
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const UserDashboard = lazy(() => import("./pages/UserDashboard"));
+const CreateExpense = lazy(() => import("./pages/CreateExpense"));
+const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
+const AccountSettings = lazy(() => import("./pages/AccountSettings"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+function PageFallback() {
+  return (
+    <div className="grid min-h-[60vh] place-items-center">
+      <Spinner className="size-6 text-brand-500" />
+    </div>
+  );
+}
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Navbar />
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        {/* Public */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-      <main className="p-6">
-        <Routes>
-          {/* Public */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+        {/* Redirect / -> /dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          {/* Redirect / -> /dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Protégées : toutes partagent la barre latérale */}
+        <Route
+          element={
+            <PrivateRoute>
+              <AppLayout />
+            </PrivateRoute>
+          }
+        >
+          <Route path="/dashboard" element={<UserDashboard />} />
+          <Route path="/expenses/new" element={<CreateExpense />} />
+          <Route path="/manager" element={<ManagerDashboard />} />
+          <Route path="/settings" element={<AccountSettings />} />
+        </Route>
 
-          {/* Protégées */}
-          <Route
-            path="/dashboard"
-            element={
-              <PrivateRoute>
-                <UserDashboard />
-              </PrivateRoute>
-            }
-          />
-
-          <Route
-            path="/expenses/new"
-            element={
-              <PrivateRoute>
-                <CreateExpense />
-              </PrivateRoute>
-            }
-          />
-
-          {/* Manager */}
-          <Route
-            path="/manager"
-            element={
-              <PrivateRoute>
-                <ManagerDashboard />
-              </PrivateRoute>
-            }
-          />
-
-          <Route
-            path="/settings"
-            element={
-              <PrivateRoute>
-                <AccountSettings />
-              </PrivateRoute>
-            }
-          />
-        </Routes>
-      </main>
-    </div>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }

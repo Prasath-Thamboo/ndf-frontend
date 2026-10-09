@@ -1,11 +1,15 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import AuthLayout from "../components/AuthLayout";
+import { Alert, Spinner } from "../components/ui";
 
 export default function Login() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,55 +36,79 @@ export default function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 p-6">
-      <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
-          Connexion
-        </h1>
+    <AuthLayout
+      title="Bon retour 👋"
+      subtitle="Connectez-vous pour accéder à vos notes de frais."
+      footer={
+        <>
+          Pas encore de compte ?{" "}
+          <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700">
+            Créer un compte
+          </Link>
+        </>
+      }
+    >
+      {error && (
+        <div className="mb-5">
+          <Alert>{error}</Alert>
+        </div>
+      )}
 
-        {error && (
-          <p className="mb-4 text-red-600 text-center">{error}</p>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label htmlFor="email" className="label">
+            Adresse email
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            className="input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="vous@entreprise.com"
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block mb-1 text-gray-700">Email</label>
+        <div>
+          <label htmlFor="password" className="label">
+            Mot de passe
+          </label>
+          <div className="relative">
             <input
-              type="email"
-              className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@example.com"
-            />
-          </div>
-
-          <div>
-            <label className="block mb-1 text-gray-700">Mot de passe</label>
-            <input
-              type="password"
-              className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              className="input pr-11"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400 hover:text-slate-600"
+              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded transition disabled:opacity-50"
-          >
-            {loading ? "Connexion..." : "Se connecter"}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-gray-600">
-          Pas de compte ?
-          <Link to="/register" className="text-blue-600 hover:underline ml-1">
-            S’inscrire
-          </Link>
-        </p>
-      </div>
-    </div>
+        <button type="submit" disabled={loading} className="btn btn-primary w-full py-3">
+          {loading ? (
+            <>
+              <Spinner className="size-4" />
+              Connexion...
+            </>
+          ) : (
+            <>
+              Se connecter
+              <ArrowRight className="size-4" />
+            </>
+          )}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

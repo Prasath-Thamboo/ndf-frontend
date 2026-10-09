@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { Spinner } from "./ui";
 
 export default function PrivateRoute({ children }) {
   const { user, loadingAuth } = useAuth();
@@ -7,8 +8,8 @@ export default function PrivateRoute({ children }) {
   // Pendant la vérification de l'auth → spinner
   if (loadingAuth) {
     return (
-      <div className="p-8 text-center text-gray-500">
-        Chargement...
+      <div className="grid min-h-screen place-items-center">
+        <Spinner className="size-6 text-brand-500" />
       </div>
     );
   }

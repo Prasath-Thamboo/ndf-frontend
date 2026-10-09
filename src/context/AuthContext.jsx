@@ -38,7 +38,6 @@ export function AuthProvider({ children }) {
         setUser(null);
       })
       .finally(() => setLoadingAuth(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async ({ email, password }) => {
@@ -86,7 +85,13 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{ user, login, register, logout, loadingAuth, refreshMe }}
     >
-      {loadingAuth ? <div className="p-8">Chargement...</div> : children}
+      {loadingAuth ? (
+        <div className="grid min-h-screen place-items-center">
+          <div className="size-8 animate-spin rounded-full border-[3px] border-brand-200 border-t-brand-600" />
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }
