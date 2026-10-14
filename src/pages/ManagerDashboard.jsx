@@ -28,34 +28,13 @@ import {
   Segmented,
   Spinner,
   StatCard,
+  Switch,
   StatusBadge,
   categoryMeta,
 } from "../components/ui";
 import { formatDate, formatDateTime, formatEUR } from "../utils/format";
 
 const ROLE_LABELS = { employee: "Employé", manager: "Manager", admin: "Admin" };
-
-function Switch({ checked, onChange, disabled, label }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={onChange}
-      disabled={disabled}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 disabled:opacity-50 ${
-        checked ? "bg-emerald-500" : "bg-slate-300"
-      }`}
-    >
-      <span
-        className={`inline-block size-5 rounded-full bg-white shadow transition ${
-          checked ? "translate-x-[22px]" : "translate-x-0.5"
-        }`}
-      />
-    </button>
-  );
-}
 
 export default function ManagerDashboard() {
   const { user } = useAuth();

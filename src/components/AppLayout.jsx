@@ -6,6 +6,7 @@ import {
   Menu,
   Plus,
   Settings,
+  ShieldCheck,
   Users,
   X,
 } from "lucide-react";
@@ -68,6 +69,11 @@ function SidebarContent({ user, isManager, logout }) {
         {isManager && (
           <NavItem to="/manager" icon={Users}>
             Espace manager
+          </NavItem>
+        )}
+        {user?.role === "admin" && (
+          <NavItem to="/admin" icon={ShieldCheck}>
+            Administration
           </NavItem>
         )}
         <NavItem to="/settings" icon={Settings}>

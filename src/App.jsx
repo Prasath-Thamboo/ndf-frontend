@@ -11,6 +11,7 @@ const UserDashboard = lazy(() => import("./pages/UserDashboard"));
 const CreateExpense = lazy(() => import("./pages/CreateExpense"));
 const ManagerDashboard = lazy(() => import("./pages/ManagerDashboard"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageFallback() {
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/expenses/new" element={<CreateExpense />} />
           <Route path="/manager" element={<ManagerDashboard />} />
           <Route path="/settings" element={<AccountSettings />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
